@@ -7,6 +7,36 @@ Singleton *Singleton::instance = 0;
 auto imuZ = IMU(19, IMUAxes::z);
 Controller controller;
 
+int numberOfLoops = 0;
+float wrappedIMU = 0;
+
+float sumError = 0;
+float lastError = 0;
+float deltaT = 0;
+
+void IMUWrapperUpdate(){
+	float currentAngle = 0;
+	float lastAngle = 0;
+	while(true){
+
+		currentAngle = imuZ.get();
+		if (currentAngle == 0){
+			currentAngle = 0.0001;
+		}
+		if(currentAngle > 0 && lastAngle < 0 && abs(currentAngle) > 90.0){
+			numberOfLoops--;
+		}
+		else if(currentAngle < 0 && lastAngle > 0 && abs(currentAngle) > 90.0){
+			numberOfLoops++;
+		}
+
+		wrappedIMU = currentAngle + (360.0 * numberOfLoops);
+		lastAngle = currentAngle;
+
+		pros::delay(20);
+	}
+}
+
 void displayTaskFnc(){
 	Singleton *s = s->getInstance();
 	shared_ptr<OdomChassisController> chassis = s->getChassis();
@@ -19,15 +49,17 @@ void displayTaskFnc(){
 		char buff2[100];
 		snprintf(buff, sizeof(buff), "(%3.1f,%3.1f)",chassis->getState().x.convert(inch),chassis->getState().y.convert(inch));
 		// snprintf(buff2, sizeof(buff2), "T:%3.2f",chassis->getState().theta.convert(degree));
-		snprintf(buff2, sizeof(buff2), "IMU:%3.2f",imuZ.get());
+		snprintf(buff2, sizeof(buff2), "wIMU:%3.2f (%d)",wrappedIMU, numberOfLoops);
 
 		std::string buffAsStdStr = buff;
 		std::string buff2AsStdStr = buff2;
 		controller.setText(1,3, buff2);
 
-		pros::lcd::print(0, "X: %f", chassis->getState().x.convert(inch));
-		pros::lcd::print(1, "Y: %f", chassis->getState().y.convert(inch));
-		pros::lcd::print(2, "T: %f", chassis->getState().theta.convert(degree));
+		// pros::lcd::print(0, "X: %f", chassis->getState().x.convert(inch));
+		// pros::lcd::print(1, "Y: %f", chassis->getState().y.convert(inch));
+		// pros::lcd::print(2, "T: %f", chassis->getState().theta.convert(degree));
+		pros::lcd::print(0, "Dt: %f", deltaT);
+		pros::lcd::print(1, "Sum: %f", sumError);
 
 		pros::lcd::print(4, "L: %d", chassis->getModel()->getSensorVals()[0]);
 		pros::lcd::print(5, "R: %d", chassis->getModel()->getSensorVals()[1]);
@@ -112,7 +144,7 @@ void autonomous() {
  */
 void opcontrol() {
 
-
+		pros::Task IMUTask(IMUWrapperUpdate);
 		pros::Task displayTask(displayTaskFnc);
 
 		Controller controller;
@@ -155,26 +187,33 @@ void opcontrol() {
 				// auto imuZ = IMU(19, IMUAxes::z);
 
 
-				float kP = 0.007;
-				float kI = 0.000000003;
-				float kD = 0.0008;
+				float kP = 0.006;
+				// float kI = 0.002;
+				float kI = 0;
+				// float kD = 0.00065;
+				float kD = 0;
 				float targetAngle = 0;
 
 				float error = targetAngle - imuZ.get();
 
-				unsigned long lastTime;
-				float lastError = 0;
-				float sumError = 0;
+				unsigned long lastTime = pros::millis();
+				lastError = 0;
+				sumError = 0;
 
 
 				SettledUtil settledUtil( //5 deg, 5 deg /sec, hold for 250ms
-				std::make_unique<Timer>(), 2, 2, 250_ms);
+				std::make_unique<Timer>(), 1, 1, 250_ms);
 
 				while(!settledUtil.isSettled(error)){
 					unsigned long now = pros::millis();
-					float deltaT = (now - lastTime)/1000.0; //ms to s
+					deltaT = (now - lastTime)/1000.0; //ms to s
 
 					error = targetAngle - imuZ.get();
+
+					if(lastError < 0 != error < 0){
+						sumError = 0;
+					}
+
 					sumError += (error * deltaT);
 
 					float deriError = (error-lastError)/deltaT;
@@ -183,6 +222,7 @@ void opcontrol() {
 	 			  lastError = error;
 
 					float turnPower = kP*error + kI*sumError + kD*deriError;
+
 					chassis->getModel()->left(turnPower);
 					chassis->getModel()->right(-turnPower);
 
@@ -211,8 +251,6 @@ void opcontrol() {
 					float error = targetAngle - imuZ.get();
 
 					unsigned long lastTime;
-					float lastError = 0;
-					float sumError = 0;
 
 
 					SettledUtil settledUtil( //5 deg, 5 deg /sec, hold for 250ms
