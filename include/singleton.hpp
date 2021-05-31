@@ -14,9 +14,11 @@ class Singleton {
        ChassisControllerBuilder()
          .withMotors({-20,14,-12},{2,-6,10}) // first set is left, 2nd set is right (- means reversed)
          .withGains(
-             {0.0004, 0.000, 0.000025}, // distance controller gains
-             {0.00135, 0.0002, 0.000037}, // turn controller gains
-             {0.000135, 0.000, 0.0000}  // angle controller gains (helps drive straight)
+             {0.000, 0.000, 0.000},
+             // {0.0004, 0.000, 0.000025}, // distance controller gains
+             {0.001, 0.0002, 0.000037}, // turn controller gains
+             {0.000, 0.000, 0.000}
+             // {0.000135, 0.000, 0.0000}  // angle controller gains (helps drive straight)
          )
          .withSensors(
              ADIEncoder{'C', 'D', false}, // left encoder in ADI ports A & B
