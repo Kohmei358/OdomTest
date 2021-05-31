@@ -4,15 +4,14 @@
 
 //Initialize pointer to zero so that it can be initialized in first call to getInstance
 Singleton *Singleton::instance = 0;
+auto imuZ = IMU(19, IMUAxes::z);
+Controller controller;
 
 void displayTaskFnc(){
 	Singleton *s = s->getInstance();
 	shared_ptr<OdomChassisController> chassis = s->getChassis();
 
-	Controller controller;
 	controller.clear();
-
-	auto imuZ = IMU(19, IMUAxes::z);
 
 	while(true){
 
@@ -121,15 +120,16 @@ void opcontrol() {
 		ControllerButton runAutoButton(ControllerDigital::X);
 		ControllerButton AButton(ControllerDigital::A);
 		ControllerButton BButton(ControllerDigital::B);
+		ControllerButton CalButton(ControllerDigital::up);
 		Singleton *s = s->getInstance();
 		shared_ptr<OdomChassisController> chassis = s->getChassis();
 
 		std::shared_ptr<AsyncMotionProfileController> profileController =
 		AsyncMotionProfileControllerBuilder()
 			.withLimits({
-				1.0, // Maximum linear velocity of the Chassis in m/s
-				2.0, // Maximum linear acceleration of the Chassis in m/s/s
-				10.0 // Maximum linear jerk of the Chassis in m/s/s/s
+				2.0, // Maximum linear velocity of the Chassis in m/s
+				1.3, // Maximum linear acceleration of the Chassis in m/s/s
+				4.0 // Maximum linear jerk of the Chassis in m/s/s/s
 			})
 			.withOutput(chassis)
 			.buildMotionProfileController();
@@ -152,7 +152,7 @@ void opcontrol() {
 				// Drive the robot in a square pattern using closed-loop control
 				// chassis->turnAngle(90_deg);   // Turn in place 90 degrees
 				// chassis->getModel()->resetSensors();
-				auto imuZ = IMU(19, IMUAxes::z);
+				// auto imuZ = IMU(19, IMUAxes::z);
 
 
 				float kP = 0.007;
@@ -191,19 +191,58 @@ void opcontrol() {
 
 		}
 
+		if (CalButton.changedToPressed()) {
+			imuZ.calibrate();
+			controller.clear();
+			controller.setText(1, 0, "The IMU Calibrates...");
+			pros::delay(3000);
+			controller.clear();
+		}
 		if (AButton.changedToPressed()) {
 					// chassis->moveDistance(24_in); // Drive forward 12 inches
 					profileController->setTarget("A");
 					profileController->waitUntilSettled();
 
-					chassis->turnToAngle(0_deg);   // Turn in place 90 degrees
+					float kP = 0.007;
+					float kI = 0;
+					float kD = 0.0008;
+					float targetAngle = 0;
+
+					float error = targetAngle - imuZ.get();
+
+					unsigned long lastTime;
+					float lastError = 0;
+					float sumError = 0;
+
+
+					SettledUtil settledUtil( //5 deg, 5 deg /sec, hold for 250ms
+					std::make_unique<Timer>(), 5, 5, 250_ms);
+
+					while(!settledUtil.isSettled(error)){
+						unsigned long now = pros::millis();
+						float deltaT = (now - lastTime)/1000.0; //ms to s
+
+						error = targetAngle - imuZ.get();
+						sumError += (error * deltaT);
+
+						float deriError = (error-lastError)/deltaT;
+
+		 			  lastTime = now;
+		 			  lastError = error;
+
+						float turnPower = kP*error + kI*sumError + kD*deriError;
+						chassis->getModel()->left(turnPower);
+						chassis->getModel()->right(-turnPower);
+
+						pros::delay(20);
+					}
 		}
 
 		if (BButton.changedToPressed()) {
-				// chassis->moveDistance(-24_in); // Drive forward 12 inches
+				// chassis->moveDistance(24_in); // Drive forward 12 inches
 				// chassis->turnAngle(90_deg);   // Turn in place 90 degrees
-				profileController->setTarget("B");
-				profileController->waitUntilSettled();
+				// profileController->setTarget("B");
+				// profileController->waitUntilSettled();
 		}
 		// Wait and give up the time we don't need to other tasks.
 		// Additionally, joystick values, motor telemetry, etc. all updates every 10 ms.
