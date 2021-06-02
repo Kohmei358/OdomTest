@@ -9,10 +9,59 @@ Controller controller;
 
 int numberOfLoops = 0;
 float wrappedIMU = 0;
+float startingOffsetDeg = 0;
 
 float sumError = 0;
 float lastError = 0;
 float deltaT = 0;
+
+void pidTurnToAngle(float targetDegree){
+	Singleton *s = s->getInstance();
+	shared_ptr<OdomChassisController> chassis = s->getChassis();
+
+	float kP = 0.005;
+	// float kI = 0.002;
+	float kI = 0.003;
+	// float kD = 0.00015;
+	float kD = 0;
+	float targetAngle = targetDegree;
+
+	float error = targetAngle - wrappedIMU;
+
+	unsigned long lastTime = pros::millis();
+	lastError = 0;
+	sumError = 0;
+
+
+	SettledUtil settledUtil( //5 deg, 5 deg /sec, hold for 250ms
+	std::make_unique<Timer>(), 1, 1, 250_ms);
+
+	while(!settledUtil.isSettled(error)){
+		unsigned long now = pros::millis();
+		deltaT = (now - lastTime)/1000.0; //ms to s
+
+		error = targetAngle - wrappedIMU;
+
+		if(lastError < 0 != error < 0){
+			sumError = 0;
+		}
+
+		sumError += (error * deltaT);
+
+		float deriError = (error-lastError)/deltaT;
+
+		lastTime = now;
+		lastError = error;
+
+		float turnPower = kP*error + kI*sumError + kD*deriError;
+
+		chassis->getModel()->left(turnPower);
+		chassis->getModel()->right(-turnPower);
+
+		pros::delay(20);
+	}
+
+}
 
 void IMUWrapperUpdate(){
 	float currentAngle = 0;
@@ -30,7 +79,7 @@ void IMUWrapperUpdate(){
 			numberOfLoops++;
 		}
 
-		wrappedIMU = currentAngle + (360.0 * numberOfLoops);
+		wrappedIMU = currentAngle + (360.0 * numberOfLoops) + startingOffsetDeg;
 		lastAngle = currentAngle;
 
 		pros::delay(20);
@@ -55,15 +104,16 @@ void displayTaskFnc(){
 		std::string buff2AsStdStr = buff2;
 		controller.setText(1,3, buff2);
 
-		// pros::lcd::print(0, "X: %f", chassis->getState().x.convert(inch));
-		// pros::lcd::print(1, "Y: %f", chassis->getState().y.convert(inch));
-		// pros::lcd::print(2, "T: %f", chassis->getState().theta.convert(degree));
 		pros::lcd::print(0, "Dt: %f", deltaT);
 		pros::lcd::print(1, "Sum: %f", sumError);
 
-		pros::lcd::print(4, "L: %d", chassis->getModel()->getSensorVals()[0]);
-		pros::lcd::print(5, "R: %d", chassis->getModel()->getSensorVals()[1]);
-		pros::lcd::print(6, "B: %d", chassis->getModel()->getSensorVals()[2]);
+		// pros::lcd::print(4, "L: %d", chassis->getModel()->getSensorVals()[0]);
+		// pros::lcd::print(5, "R: %d", chassis->getModel()->getSensorVals()[1]);
+		// pros::lcd::print(6, "B: %d", chassis->getModel()->getSensorVals()[2]);
+
+		pros::lcd::print(4, "X: %f", chassis->getState().x.convert(inch));
+		pros::lcd::print(5, "Y: %f", chassis->getState().y.convert(inch));
+		pros::lcd::print(6, "T: %f", chassis->getState().theta.convert(degree));
 
 		pros::delay(20);
 	}
@@ -92,8 +142,21 @@ void on_center_button() {
  * to keep execution time for this mode under a few seconds.
  */
 void initialize() {
+	controller.clear();
+	controller.setText(1, 0, "The IMU Calibrates...");
+	imuZ.calibrate();
+	pros::delay(3000);
+	controller.clear();
+
 	pros::lcd::initialize();
-	Singleton *s = s->getInstance();
+
+	pros::delay(3000);
+
+	Singleton *s = s->getInstance(); //Make Chassis object (only happens on first call)
+
+	pros::Task IMUTask(IMUWrapperUpdate); // Continous IMU readings use "wrappedIMU"
+	pros::Task displayTask(displayTaskFnc);
+
 }
 
 /**
@@ -127,6 +190,80 @@ void competition_initialize() {}
  */
 void autonomous() {
 
+	Singleton *s = s->getInstance();
+	shared_ptr<OdomChassisController> chassis = s->getChassis();
+	shared_ptr<OdomChassisController> chassisRev = s->getChassisRev();
+	shared_ptr<ChassisController> chassisOld = s->getChassisOld();
+
+	std::shared_ptr<AsyncMotionProfileController> profileController =
+	AsyncMotionProfileControllerBuilder()
+		.withLimits({
+			2.0, // Maximum linear velocity of the Chassis in m/s
+			1.3, // Maximum linear acceleration of the Chassis in m/s/s
+			4.0 // Maximum linear jerk of the Chassis in m/s/s/s
+		})
+		.withOutput(chassis)
+		.buildMotionProfileController();
+
+	std::shared_ptr<AsyncMotionProfileController> revProfileController =
+	AsyncMotionProfileControllerBuilder()
+		.withLimits({
+			2.0, // Maximum linear velocity of the Chassis in m/s
+			1.3, // Maximum linear acceleration of the Chassis in m/s/s
+			4.0 // Maximum linear jerk of the Chassis in m/s/s/s
+		})
+		.withOutput(chassisRev)
+		.buildMotionProfileController();
+
+	std::shared_ptr<AsyncMotionProfileController> turnProfileController =
+	AsyncMotionProfileControllerBuilder()
+		.withLimits({
+			1.0, // Maximum linear velocity of the Chassis in m/s
+			0.6, // Maximum linear acceleration of the Chassis in m/s/s
+			2.0 // Maximum linear jerk of the Chassis in m/s/s/s
+		})
+		.withOutput(chassis)
+		.buildMotionProfileController();
+
+		startingOffsetDeg = -60;
+
+		//Start here!;
+		profileController->generatePath(
+    {{0_ft, 0_ft, 0_deg}, {36_in, 0_ft, 0_deg}}, "FirstStraight");
+		profileController->setTarget("FirstStraight");
+		profileController->waitUntilSettled();
+
+		revProfileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {12_in, 0_ft, 0_deg}}, "REVToGoal1");
+		revProfileController->setTarget("REVToGoal1");
+		revProfileController->waitUntilSettled();
+
+		pidTurnToAngle(-135);
+
+		profileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {10_in, 0_ft, 0_deg}}, "TowardsGoal1");
+		profileController->setTarget("TowardsGoal1");
+		profileController->waitUntilSettled();
+
+		revProfileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {10_in, 0_ft, 0_deg}}, "REVToGoal1");
+		revProfileController->setTarget("REVToGoal1");
+		revProfileController->waitUntilSettled();
+
+		pidTurnToAngle(75+(360*-1));
+
+		profileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {30_in, 0_ft, 0_deg}}, "LongShotToBall");
+		profileController->setTarget("LongShotToBall");
+		profileController->waitUntilSettled();
+
+		pidTurnToAngle(180+(360*-1));
+
+		profileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {15_in, 0_ft, 0_deg}}, "LongShotToBall");
+		profileController->setTarget("LongShotToBall");
+		profileController->waitUntilSettled();
+
 }
 
 /**
@@ -144,33 +281,25 @@ void autonomous() {
  */
 void opcontrol() {
 
-		pros::Task IMUTask(IMUWrapperUpdate);
-		pros::Task displayTask(displayTaskFnc);
-
 		Controller controller;
 		controller.clear();
-		ControllerButton runAutoButton(ControllerDigital::X);
+		ControllerButton XButton(ControllerDigital::X);
 		ControllerButton AButton(ControllerDigital::A);
 		ControllerButton BButton(ControllerDigital::B);
 		ControllerButton CalButton(ControllerDigital::up);
 		Singleton *s = s->getInstance();
 		shared_ptr<OdomChassisController> chassis = s->getChassis();
 
-		std::shared_ptr<AsyncMotionProfileController> profileController =
-		AsyncMotionProfileControllerBuilder()
-			.withLimits({
-				2.0, // Maximum linear velocity of the Chassis in m/s
-				1.3, // Maximum linear acceleration of the Chassis in m/s/s
-				4.0 // Maximum linear jerk of the Chassis in m/s/s/s
-			})
-			.withOutput(chassis)
-			.buildMotionProfileController();
 
-		profileController->generatePath(
-    {{0_ft, 0_ft, 0_deg}, {2_ft, 0_ft, 0_deg}}, "A");
 
-		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {0_ft, 0_ft, 0_deg}}, "B");
+
+		// chassis->moveDistance(24_in); // Drive forward 12 inches
+
+		// profileController->generatePath(
+    // {{0_ft, 0_ft, 0_deg}, {2.5_ft, 0_ft, 0_deg}}, "A");
+		//
+		// turnProfileController->generatePath(
+		// {{0_ft, 0_ft, 0_deg}, {2_ft, 2_ft, 0_deg}}, "B");
 
 
 		while (true) {
@@ -180,54 +309,11 @@ void opcontrol() {
 
 
 		// Run the test autonomous routine if we press the button
-		if (runAutoButton.changedToPressed()) {
+		if (XButton.changedToPressed()) {
 				// Drive the robot in a square pattern using closed-loop control
 				// chassis->turnAngle(90_deg);   // Turn in place 90 degrees
 				// chassis->getModel()->resetSensors();
 				// auto imuZ = IMU(19, IMUAxes::z);
-
-
-				float kP = 0.006;
-				// float kI = 0.002;
-				float kI = 0;
-				// float kD = 0.00065;
-				float kD = 0;
-				float targetAngle = 0;
-
-				float error = targetAngle - imuZ.get();
-
-				unsigned long lastTime = pros::millis();
-				lastError = 0;
-				sumError = 0;
-
-
-				SettledUtil settledUtil( //5 deg, 5 deg /sec, hold for 250ms
-				std::make_unique<Timer>(), 1, 1, 250_ms);
-
-				while(!settledUtil.isSettled(error)){
-					unsigned long now = pros::millis();
-					deltaT = (now - lastTime)/1000.0; //ms to s
-
-					error = targetAngle - imuZ.get();
-
-					if(lastError < 0 != error < 0){
-						sumError = 0;
-					}
-
-					sumError += (error * deltaT);
-
-					float deriError = (error-lastError)/deltaT;
-
-	 			  lastTime = now;
-	 			  lastError = error;
-
-					float turnPower = kP*error + kI*sumError + kD*deriError;
-
-					chassis->getModel()->left(turnPower);
-					chassis->getModel()->right(-turnPower);
-
-					pros::delay(20);
-				}
 
 		}
 
@@ -239,44 +325,27 @@ void opcontrol() {
 			controller.clear();
 		}
 		if (AButton.changedToPressed()) {
-					// chassis->moveDistance(24_in); // Drive forward 12 inches
-					profileController->setTarget("A");
-					profileController->waitUntilSettled();
-
-					float kP = 0.007;
-					float kI = 0;
-					float kD = 0.0008;
-					float targetAngle = 0;
-
-					float error = targetAngle - imuZ.get();
-
-					unsigned long lastTime;
-
-
-					SettledUtil settledUtil( //5 deg, 5 deg /sec, hold for 250ms
-					std::make_unique<Timer>(), 5, 5, 250_ms);
-
-					while(!settledUtil.isSettled(error)){
-						unsigned long now = pros::millis();
-						float deltaT = (now - lastTime)/1000.0; //ms to s
-
-						error = targetAngle - imuZ.get();
-						sumError += (error * deltaT);
-
-						float deriError = (error-lastError)/deltaT;
-
-		 			  lastTime = now;
-		 			  lastError = error;
-
-						float turnPower = kP*error + kI*sumError + kD*deriError;
-						chassis->getModel()->left(turnPower);
-						chassis->getModel()->right(-turnPower);
-
-						pros::delay(20);
-					}
+					chassis->moveDistance(24_in); // Drive forward 12 inches
+					// profileController->setTarget("A");
+					// profileController->waitUntilSettled();
+					// turnProfileController->setTarget("B");
+					// turnProfileController->waitUntilSettled();
 		}
 
 		if (BButton.changedToPressed()) {
+				float angle = 2.0;
+				int count = 0;
+				while(true){
+					count++;
+					// profileController->setTarget("A");
+					// profileController->waitUntilSettled();
+					angle += 90;
+					pidTurnToAngle(angle);
+					// if(count % 4 == 0){
+					// 	imuZ.calibrate();
+					// 	pros::delay(3000);
+					// }
+				}
 				// chassis->moveDistance(24_in); // Drive forward 12 inches
 				// chassis->turnAngle(90_deg);   // Turn in place 90 degrees
 				// profileController->setTarget("B");
