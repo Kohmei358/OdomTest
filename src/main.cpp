@@ -15,6 +15,10 @@ float sumError = 0;
 float lastError = 0;
 float deltaT = 0;
 
+MotorGroup Conveyor = MotorGroup({-1,9});
+MotorGroup Intake = MotorGroup({18,-16});
+MotorGroup Indexer = MotorGroup({4,-8});
+
 void pidTurnToAngle(float targetDegree){
 	Singleton *s = s->getInstance();
 	shared_ptr<OdomChassisController> chassis = s->getChassis();
@@ -142,15 +146,7 @@ void on_center_button() {
  * to keep execution time for this mode under a few seconds.
  */
 void initialize() {
-	controller.clear();
-	controller.setText(1, 0, "The IMU Calibrates...");
-	imuZ.calibrate();
-	pros::delay(3000);
-	controller.clear();
-
 	pros::lcd::initialize();
-
-	pros::delay(3000);
 
 	Singleton *s = s->getInstance(); //Make Chassis object (only happens on first call)
 
@@ -189,6 +185,13 @@ void competition_initialize() {}
  * from where it left off.
  */
 void autonomous() {
+
+	controller.clear();
+	controller.setText(1, 0, "The IMU Calibrates...");
+	pros::delay(100);
+	imuZ.calibrate();
+	pros::delay(3000);
+	controller.clear();
 
 	Singleton *s = s->getInstance();
 	shared_ptr<OdomChassisController> chassis = s->getChassis();
@@ -287,6 +290,10 @@ void opcontrol() {
 		ControllerButton AButton(ControllerDigital::A);
 		ControllerButton BButton(ControllerDigital::B);
 		ControllerButton CalButton(ControllerDigital::up);
+		ControllerButton L1Button(ControllerDigital::L1);
+		ControllerButton L2Button(ControllerDigital::L2);
+		ControllerButton R1Button(ControllerDigital::R1);
+		ControllerButton R2Button(ControllerDigital::R2);
 		Singleton *s = s->getInstance();
 		shared_ptr<OdomChassisController> chassis = s->getChassis();
 
@@ -307,7 +314,28 @@ void opcontrol() {
 		chassis->getModel()->arcade(controller.getAnalog(ControllerAnalog::leftY),
 															controller.getAnalog(ControllerAnalog::rightX));
 
+		if (L1Button.isPressed()){
+			Intake.moveVoltage(127*100);
+			Conveyor.moveVoltage(127*100);
+			Indexer.moveVoltage(-40*100);
+		}
 
+		else if (L2Button.isPressed()){
+			Intake.moveVoltage(-127*100);
+			Conveyor.moveVoltage(-127*100);
+			Indexer.moveVoltage(-127*100);
+		}
+
+		else if (R1Button.isPressed()){
+			Conveyor.moveVoltage(127*100);
+			Indexer.moveVoltage(127*100);
+			Intake.moveVoltage(0);
+		}
+		else{
+			Intake.moveVoltage(0);
+			Conveyor.moveVoltage(0);
+			Indexer.moveVoltage(0);
+		}
 		// Run the test autonomous routine if we press the button
 		if (XButton.changedToPressed()) {
 				// Drive the robot in a square pattern using closed-loop control
