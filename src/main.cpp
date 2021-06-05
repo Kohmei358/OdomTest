@@ -8,6 +8,7 @@ auto imuZ = IMU(19, IMUAxes::z);
 Controller controller;
 
 int numberOfLoops = 0;
+bool settled = false;
 float wrappedIMU = 0;
 float startingOffsetDeg = 0;
 
@@ -23,11 +24,11 @@ void pidTurnToAngle(float targetDegree){
 	Singleton *s = s->getInstance();
 	shared_ptr<OdomChassisController> chassis = s->getChassis();
 
-	float kP = 0.005;
+	float kP = 0.0055; //0.0056
 	// float kI = 0.002;
-	float kI = 0.003;
+	float kI = 0.00032;//0.005
 	// float kD = 0.00015;
-	float kD = 0;
+	float kD = 0.00025;//hh
 	float targetAngle = targetDegree;
 
 	float error = targetAngle - wrappedIMU;
@@ -38,7 +39,7 @@ void pidTurnToAngle(float targetDegree){
 
 
 	SettledUtil settledUtil( //5 deg, 5 deg /sec, hold for 250ms
-	std::make_unique<Timer>(), 1, 1, 250_ms);
+	std::make_unique<Timer>(), 1, 10, 250_ms);
 
 	while(!settledUtil.isSettled(error)){
 		unsigned long now = pros::millis();
@@ -46,8 +47,8 @@ void pidTurnToAngle(float targetDegree){
 
 		error = targetAngle - wrappedIMU;
 
-		if(lastError < 0 != error < 0){
-			sumError = 0;
+		if((lastError < 0) != (error < 0)){
+			sumError = -sumError*0.2;
 		}
 
 		sumError += (error * deltaT);
@@ -228,44 +229,67 @@ void autonomous() {
 		.withOutput(chassis)
 		.buildMotionProfileController();
 
-		startingOffsetDeg = -60;
+		startingOffsetDeg = -57;
 
 		//Start here!;
 		profileController->generatePath(
-    {{0_ft, 0_ft, 0_deg}, {36_in, 0_ft, 0_deg}}, "FirstStraight");
+    {{0_ft, 0_ft, 0_deg}, {30_in, 0_ft, 0_deg}}, "FirstStraight");
 		profileController->setTarget("FirstStraight");
 		profileController->waitUntilSettled();
 
 		revProfileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {12_in, 0_ft, 0_deg}}, "REVToGoal1");
+		{{0_ft, 0_ft, 0_deg}, {8_in, 0_ft, 0_deg}}, "REVToGoal1");
 		revProfileController->setTarget("REVToGoal1");
 		revProfileController->waitUntilSettled();
 
 		pidTurnToAngle(-135);
 
 		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {10_in, 0_ft, 0_deg}}, "TowardsGoal1");
+		{{0_ft, 0_ft, 0_deg}, {9_in, 0_ft, 0_deg}}, "TowardsGoal1");
 		profileController->setTarget("TowardsGoal1");
-		profileController->waitUntilSettled();
+		profileController->waitUntilSettled();\
+
+		pros::delay(1000);
 
 		revProfileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {10_in, 0_ft, 0_deg}}, "REVToGoal1");
+		{{0_ft, 0_ft, 0_deg}, {9_in, 0_ft, 0_deg}}, "REVToGoal1");
 		revProfileController->setTarget("REVToGoal1");
 		revProfileController->waitUntilSettled();
 
-		pidTurnToAngle(75+(360*-1));
+		pidTurnToAngle(68+(360*-1));
 
 		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {30_in, 0_ft, 0_deg}}, "LongShotToBall");
+		{{0_ft, 0_ft, 0_deg}, {31_in, 0_ft, 0_deg}}, "LongShotToBall");
 		profileController->setTarget("LongShotToBall");
 		profileController->waitUntilSettled();
 
-		pidTurnToAngle(180+(360*-1));
+		pidTurnToAngle(190+(360*-1));
 
 		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {15_in, 0_ft, 0_deg}}, "LongShotToBall");
+		{{0_ft, 0_ft, 0_deg}, {17_in, 0_ft, 0_deg}}, "LongShotToBall");
 		profileController->setTarget("LongShotToBall");
 		profileController->waitUntilSettled();
+
+		revProfileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {4_in, 0_ft, 0_deg}}, "REVToGoal1");
+		revProfileController->setTarget("REVToGoal1");
+		revProfileController->waitUntilSettled();
+
+		pidTurnToAngle(90+(360*-1));
+
+		profileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {18_in, 0_ft, 0_deg}}, "LongShotToBall");
+		profileController->setTarget("LongShotToBall");
+		profileController->waitUntilSettled();
+
+		pidTurnToAngle(80+(360*-1));
+
+		profileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {18_in, 0_ft, 0_deg}}, "LongShotToBall");
+		profileController->setTarget("LongShotToBall");
+		profileController->waitUntilSettled();
+
+
 
 }
 
@@ -353,11 +377,12 @@ void opcontrol() {
 			controller.clear();
 		}
 		if (AButton.changedToPressed()) {
-					chassis->moveDistance(24_in); // Drive forward 12 inches
-					// profileController->setTarget("A");
-					// profileController->waitUntilSettled();
-					// turnProfileController->setTarget("B");
-					// turnProfileController->waitUntilSettled();
+					// chassis->moveDistance(24_in); // Drive forward 12 inches
+					// // profileController->setTarget("A");
+					// // profileController->waitUntilSettled();
+					// // turnProfileController->setTarget("B");
+					// // turnProfileController->waitUntilSettled();
+					pidTurnToAngle(80);
 		}
 
 		if (BButton.changedToPressed()) {
