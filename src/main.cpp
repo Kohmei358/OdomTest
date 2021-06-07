@@ -24,11 +24,15 @@ void pidTurnToAngle(float targetDegree){
 	Singleton *s = s->getInstance();
 	shared_ptr<OdomChassisController> chassis = s->getChassis();
 
-	float kP = 0.0055; //0.0056
+	// float kP = 0.0055; //0.0056
 	// float kI = 0.002;
-	float kI = 0.00032;//0.005
+	float kI = 0.00054;//0.005
 	// float kD = 0.00015;
-	float kD = 0.00025;//hh
+	// float kD = 0.00024;//hh
+
+	float kP = 0.0048; //0.0056
+	// float kI = 0;
+	float kD = 0;
 	float targetAngle = targetDegree;
 
 	float error = targetAngle - wrappedIMU;
@@ -39,7 +43,7 @@ void pidTurnToAngle(float targetDegree){
 
 
 	SettledUtil settledUtil( //5 deg, 5 deg /sec, hold for 250ms
-	std::make_unique<Timer>(), 1, 10, 250_ms);
+	std::make_unique<Timer>(), 2, 3, 100_ms);
 
 	while(!settledUtil.isSettled(error)){
 		unsigned long now = pros::millis();
@@ -48,7 +52,8 @@ void pidTurnToAngle(float targetDegree){
 		error = targetAngle - wrappedIMU;
 
 		if((lastError < 0) != (error < 0)){
-			sumError = -sumError*0.2;
+			// sumError = -sumError*0.4;
+			sumError = 0;
 		}
 
 		sumError += (error * deltaT);
@@ -233,7 +238,7 @@ void autonomous() {
 
 		//Start here!;
 		profileController->generatePath(
-    {{0_ft, 0_ft, 0_deg}, {30_in, 0_ft, 0_deg}}, "FirstStraight");
+    {{0_ft, 0_ft, 0_deg}, {30.5_in, 0_ft, 0_deg}}, "FirstStraight");
 		profileController->setTarget("FirstStraight");
 		profileController->waitUntilSettled();
 
@@ -249,7 +254,7 @@ void autonomous() {
 		profileController->setTarget("TowardsGoal1");
 		profileController->waitUntilSettled();\
 
-		pros::delay(1000);
+		pros::delay(1000); //Score Goal 1
 
 		revProfileController->generatePath(
 		{{0_ft, 0_ft, 0_deg}, {9_in, 0_ft, 0_deg}}, "REVToGoal1");
@@ -263,32 +268,114 @@ void autonomous() {
 		profileController->setTarget("LongShotToBall");
 		profileController->waitUntilSettled();
 
-		pidTurnToAngle(190+(360*-1));
+		pidTurnToAngle(185+(360*-1));
 
 		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {17_in, 0_ft, 0_deg}}, "LongShotToBall");
+		{{0_ft, 0_ft, 0_deg}, {15_in, 0_ft, 0_deg}}, "LongShotToBall");
 		profileController->setTarget("LongShotToBall");
 		profileController->waitUntilSettled();
+
+		profileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {5_in, 0_ft, 0_deg}}, "LongShotToBall");
+		profileController->setTarget("LongShotToBall");
+		profileController->waitUntilSettled();
+
+		chassis->getModel()->left(0);
+		chassis->getModel()->right(0);
+
+		pros::delay(1000); //Score Goal 2
 
 		revProfileController->generatePath(
 		{{0_ft, 0_ft, 0_deg}, {4_in, 0_ft, 0_deg}}, "REVToGoal1");
 		revProfileController->setTarget("REVToGoal1");
 		revProfileController->waitUntilSettled();
 
-		pidTurnToAngle(90+(360*-1));
+		pidTurnToAngle(88+(360*-1));
 
 		profileController->generatePath(
 		{{0_ft, 0_ft, 0_deg}, {18_in, 0_ft, 0_deg}}, "LongShotToBall");
 		profileController->setTarget("LongShotToBall");
 		profileController->waitUntilSettled();
 
-		pidTurnToAngle(80+(360*-1));
+		pidTurnToAngle(82+(360*-1));
 
 		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {18_in, 0_ft, 0_deg}}, "LongShotToBall");
+		{{0_ft, 0_ft, 0_deg}, {15_in, 0_ft, 0_deg}}, "LongShotToBall");
 		profileController->setTarget("LongShotToBall");
 		profileController->waitUntilSettled();
 
+		revProfileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {8_in, 0_ft, 0_deg}}, "REVToGoal1");
+		revProfileController->setTarget("REVToGoal1");
+		revProfileController->waitUntilSettled();
+
+		pidTurnToAngle(137+(360*-1));
+
+		profileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {15_in, 0_ft, 0_deg}}, "LongShotToBall");
+		profileController->setTarget("LongShotToBall");
+		profileController->waitUntilSettled();
+
+		pros::delay(1000); //Score Goal 3
+
+		revProfileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {4_in, 0_ft, 0_deg}}, "REVToGoal1");
+		revProfileController->setTarget("REVToGoal1");
+		revProfileController->waitUntilSettled();
+
+		pidTurnToAngle(-21+(360*-1));
+
+		profileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {37_in, 0_ft, 0_deg}}, "LongShotToBall");
+		profileController->setTarget("LongShotToBall");
+		profileController->waitUntilSettled();
+
+		pidTurnToAngle(93+(360*-1));
+
+		profileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {15_in, 0_ft, 0_deg}}, "LongShotToBall");
+		profileController->setTarget("LongShotToBall");
+		profileController->waitUntilSettled();
+
+		pros::delay(1000); //Score Goal 4
+
+		revProfileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {4_in, 0_ft, 0_deg}}, "REVToGoal1");
+		revProfileController->setTarget("REVToGoal1");
+		revProfileController->waitUntilSettled();
+
+		pidTurnToAngle(-10+(360*-1));
+
+		profileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {25_in, 0_ft, 0_deg}}, "LongShotToBall");
+		profileController->setTarget("LongShotToBall");
+		profileController->waitUntilSettled();
+
+		pidTurnToAngle(110+(360*-1));
+
+		profileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {15_in, 0_ft, 0_deg}}, "LongShotToBall");
+		profileController->setTarget("LongShotToBall");
+		profileController->waitUntilSettled();
+
+		revProfileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {8_in, 0_ft, 0_deg}}, "REVToGoal1");
+		revProfileController->setTarget("REVToGoal1");
+		revProfileController->waitUntilSettled();
+
+		pidTurnToAngle(45+(360*-1));
+
+		profileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {8_in, 0_ft, 0_deg}}, "LongShotToBall");
+		profileController->setTarget("LongShotToBall");
+		profileController->waitUntilSettled();
+
+		pros::delay(1000); //Score Goal 5
+
+		revProfileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {4_in, 0_ft, 0_deg}}, "REVToGoal1");
+		revProfileController->setTarget("REVToGoal1");
+		revProfileController->waitUntilSettled();
 
 
 }
@@ -386,26 +473,7 @@ void opcontrol() {
 		}
 
 		if (BButton.changedToPressed()) {
-				float angle = 2.0;
-				int count = 0;
-				while(true){
-					count++;
-					// profileController->setTarget("A");
-					// profileController->waitUntilSettled();
-					angle += 90;
-					pidTurnToAngle(angle);
-					// if(count % 4 == 0){
-					// 	imuZ.calibrate();
-					// 	pros::delay(3000);
-					// }
-				}
-				// chassis->moveDistance(24_in); // Drive forward 12 inches
-				// chassis->turnAngle(90_deg);   // Turn in place 90 degrees
-				// profileController->setTarget("B");
-				// profileController->waitUntilSettled();
+			autonomous();
 		}
-		// Wait and give up the time we don't need to other tasks.
-		// Additionally, joystick values, motor telemetry, etc. all updates every 10 ms.
-		pros::delay(10);
 	}
 }
