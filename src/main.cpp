@@ -7,6 +7,8 @@ Singleton *Singleton::instance = 0;
 auto imuZ = IMU(19, IMUAxes::z);
 Controller controller;
 
+ADIUltrasonic sonar = ADIUltrasonic(7,8);
+
 int numberOfLoops = 0;
 bool settled = false;
 float wrappedIMU = 0;
@@ -26,7 +28,7 @@ void pidTurnToAngle(float targetDegree){
 
 	// float kP = 0.0055; //0.0056
 	// float kI = 0.002;
-	float kI = 0.00054;//0.005
+	float kI = 0.00055;//0.005
 	// float kD = 0.00015;
 	// float kD = 0.00024;//hh
 
@@ -43,7 +45,7 @@ void pidTurnToAngle(float targetDegree){
 
 
 	SettledUtil settledUtil( //5 deg, 5 deg /sec, hold for 250ms
-	std::make_unique<Timer>(), 2, 3, 100_ms);
+	std::make_unique<Timer>(), 5, 5, 50_ms);
 
 	while(!settledUtil.isSettled(error)){
 		unsigned long now = pros::millis();
@@ -124,6 +126,7 @@ void displayTaskFnc(){
 		pros::lcd::print(4, "X: %f", chassis->getState().x.convert(inch));
 		pros::lcd::print(5, "Y: %f", chassis->getState().y.convert(inch));
 		pros::lcd::print(6, "T: %f", chassis->getState().theta.convert(degree));
+		pros::lcd::print(7, "Sonar: %f", sonar.get());
 
 		pros::delay(20);
 	}
@@ -196,6 +199,7 @@ void autonomous() {
 	controller.setText(1, 0, "The IMU Calibrates...");
 	pros::delay(100);
 	imuZ.calibrate();
+	numberOfLoops = 0;
 	pros::delay(3000);
 	controller.clear();
 
@@ -236,6 +240,7 @@ void autonomous() {
 
 		startingOffsetDeg = -57;
 
+
 		//Start here!;
 		profileController->generatePath(
     {{0_ft, 0_ft, 0_deg}, {30.5_in, 0_ft, 0_deg}}, "FirstStraight");
@@ -252,7 +257,7 @@ void autonomous() {
 		profileController->generatePath(
 		{{0_ft, 0_ft, 0_deg}, {9_in, 0_ft, 0_deg}}, "TowardsGoal1");
 		profileController->setTarget("TowardsGoal1");
-		profileController->waitUntilSettled();\
+		profileController->waitUntilSettled();
 
 		pros::delay(1000); //Score Goal 1
 
@@ -261,27 +266,30 @@ void autonomous() {
 		revProfileController->setTarget("REVToGoal1");
 		revProfileController->waitUntilSettled();
 
-		pidTurnToAngle(68+(360*-1));
+		pidTurnToAngle(69+(360*-1));
 
 		profileController->generatePath(
 		{{0_ft, 0_ft, 0_deg}, {31_in, 0_ft, 0_deg}}, "LongShotToBall");
 		profileController->setTarget("LongShotToBall");
 		profileController->waitUntilSettled();
 
-		pidTurnToAngle(185+(360*-1));
+		pidTurnToAngle(186+(360*-1));
 
 		profileController->generatePath(
 		{{0_ft, 0_ft, 0_deg}, {15_in, 0_ft, 0_deg}}, "LongShotToBall");
 		profileController->setTarget("LongShotToBall");
 		profileController->waitUntilSettled();
 
-		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {5_in, 0_ft, 0_deg}}, "LongShotToBall");
-		profileController->setTarget("LongShotToBall");
-		profileController->waitUntilSettled();
+		int distnaceToWall = sonar.get() - 360;
+		float x = distnaceToWall / 12.0 / 100.0; //Make constant larger if crashing into goal
+		if(x < 0){
+			x = 0;
+		}
 
-		chassis->getModel()->left(0);
-		chassis->getModel()->right(0);
+		profileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {(QLength)x, 0_ft, 0_deg}}, "FirstStraight");
+		profileController->setTarget("FirstStraight");
+		profileController->waitUntilSettled();
 
 		pros::delay(1000); //Score Goal 2
 
@@ -309,7 +317,7 @@ void autonomous() {
 		revProfileController->setTarget("REVToGoal1");
 		revProfileController->waitUntilSettled();
 
-		pidTurnToAngle(137+(360*-1));
+		pidTurnToAngle(138+(360*-1));
 
 		profileController->generatePath(
 		{{0_ft, 0_ft, 0_deg}, {15_in, 0_ft, 0_deg}}, "LongShotToBall");
@@ -323,18 +331,29 @@ void autonomous() {
 		revProfileController->setTarget("REVToGoal1");
 		revProfileController->waitUntilSettled();
 
-		pidTurnToAngle(-21+(360*-1));
+		pidTurnToAngle(-19+(360*-1));
 
 		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {37_in, 0_ft, 0_deg}}, "LongShotToBall");
+		{{0_ft, 0_ft, 0_deg}, {39_in, 0_ft, 0_deg}}, "LongShotToBall");
 		profileController->setTarget("LongShotToBall");
 		profileController->waitUntilSettled();
 
-		pidTurnToAngle(93+(360*-1));
+		pidTurnToAngle(94+(360*-1));
 
 		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {15_in, 0_ft, 0_deg}}, "LongShotToBall");
+		{{0_ft, 0_ft, 0_deg}, {14_in, 0_ft, 0_deg}}, "LongShotToBall");
 		profileController->setTarget("LongShotToBall");
+		profileController->waitUntilSettled();
+
+		distnaceToWall = sonar.get() - 360;
+		x = distnaceToWall / 12.0 / 100.0; //Make constant larger if crashing into goal
+		if(x < 0){
+			x = 0;
+		}
+
+		profileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {(QLength)x, 0_ft, 0_deg}}, "FirstStraight");
+		profileController->setTarget("FirstStraight");
 		profileController->waitUntilSettled();
 
 		pros::delay(1000); //Score Goal 4
@@ -351,10 +370,10 @@ void autonomous() {
 		profileController->setTarget("LongShotToBall");
 		profileController->waitUntilSettled();
 
-		pidTurnToAngle(110+(360*-1));
+		pidTurnToAngle(105+(360*-1));
 
 		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {15_in, 0_ft, 0_deg}}, "LongShotToBall");
+		{{0_ft, 0_ft, 0_deg}, {13_in, 0_ft, 0_deg}}, "LongShotToBall");
 		profileController->setTarget("LongShotToBall");
 		profileController->waitUntilSettled();
 
@@ -363,10 +382,10 @@ void autonomous() {
 		revProfileController->setTarget("REVToGoal1");
 		revProfileController->waitUntilSettled();
 
-		pidTurnToAngle(45+(360*-1));
+		pidTurnToAngle(44+(360*-1));
 
 		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {8_in, 0_ft, 0_deg}}, "LongShotToBall");
+		{{0_ft, 0_ft, 0_deg}, {14_in, 0_ft, 0_deg}}, "LongShotToBall");
 		profileController->setTarget("LongShotToBall");
 		profileController->waitUntilSettled();
 
@@ -377,6 +396,26 @@ void autonomous() {
 		revProfileController->setTarget("REVToGoal1");
 		revProfileController->waitUntilSettled();
 
+		pidTurnToAngle(-105+(360*-1));
+
+		profileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {30_in, 0_ft, 0_deg}}, "LongShotToBall");
+		profileController->setTarget("LongShotToBall");
+		profileController->waitUntilSettled();
+
+		pidTurnToAngle(0+(360*-1));
+
+		profileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {20_in, 0_ft, 0_deg}}, "LongShotToBall");
+		profileController->setTarget("LongShotToBall");
+		profileController->waitUntilSettled();
+
+		pros::delay(1000);
+
+		revProfileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {4_in, 0_ft, 0_deg}}, "REVToGoal1");
+		revProfileController->setTarget("REVToGoal1");
+		revProfileController->waitUntilSettled();
 
 }
 
@@ -473,7 +512,10 @@ void opcontrol() {
 		}
 
 		if (BButton.changedToPressed()) {
+			numberOfLoops = 0;
 			autonomous();
 		}
+
+		pros::delay(20);
 	}
 }
