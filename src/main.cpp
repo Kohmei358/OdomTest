@@ -2,12 +2,16 @@
 #include "singleton.hpp"
 #include "okapi/impl/util/timer.hpp"
 
+#define DIGITAL_SENSOR_PORTA 'A'
+#define DIGITAL_SENSOR_PORTB 'B'
+#define DIGITAL_SENSOR_PORTC 'C'
+
 //Initialize pointer to zero so that it can be initialized in first call to getInstance
 Singleton *Singleton::instance = 0;
 auto imuZ = IMU(19, IMUAxes::z);
 Controller controller;
 
-ADIUltrasonic sonar = ADIUltrasonic(7,8);
+// ADIUltrasonic sonar = ADIUltrasonic(7,8);
 
 int numberOfLoops = 0;
 bool settled = false;
@@ -22,28 +26,26 @@ MotorGroup Conveyor = MotorGroup({-1,9});
 MotorGroup Intake = MotorGroup({18,-16});
 MotorGroup Indexer = MotorGroup({4,-8});
 
+pros::ADIDigitalOut intakeR ('G');
+pros::ADIDigitalOut intakeL ('E');
+// pros::ADIDigitalOut deploy (DIGITAL_SENSOR_PORTC);
+pros::ADIDigitalOut deploy ('H');
+
+// pros::ADIDigitalOut rightIntakePenu('C');
+// pros::ADIDigitalOut leftIntakePenu('B');
+// pros::ADIDigitalOut deploy('H');
+
 void pidTurnToAngle(float targetDegree){
 	Singleton *s = s->getInstance();
 	shared_ptr<OdomChassisController> chassis = s->getChassis();
-
-	// float kP = 0.0055; //0.0056
-	// float kI = 0.002;
 	float kI = 0.00055;//0.005
-	// float kD = 0.00015;
-	// float kD = 0.00024;//hh
-
 	float kP = 0.0048; //0.0056
-	// float kI = 0;
 	float kD = 0;
 	float targetAngle = targetDegree;
-
 	float error = targetAngle - wrappedIMU;
-
 	unsigned long lastTime = pros::millis();
 	lastError = 0;
 	sumError = 0;
-
-
 	SettledUtil settledUtil( //5 deg, 5 deg /sec, hold for 250ms
 	std::make_unique<Timer>(), 5, 5, 50_ms);
 
@@ -54,7 +56,6 @@ void pidTurnToAngle(float targetDegree){
 		error = targetAngle - wrappedIMU;
 
 		if((lastError < 0) != (error < 0)){
-			// sumError = -sumError*0.4;
 			sumError = 0;
 		}
 
@@ -94,7 +95,7 @@ void IMUWrapperUpdate(){
 		wrappedIMU = currentAngle + (360.0 * numberOfLoops) + startingOffsetDeg;
 		lastAngle = currentAngle;
 
-		pros::delay(20);
+		pros::delay(25);
 	}
 }
 
@@ -126,7 +127,7 @@ void displayTaskFnc(){
 		pros::lcd::print(4, "X: %f", chassis->getState().x.convert(inch));
 		pros::lcd::print(5, "Y: %f", chassis->getState().y.convert(inch));
 		pros::lcd::print(6, "T: %f", chassis->getState().theta.convert(degree));
-		pros::lcd::print(7, "Sonar: %f", sonar.get());
+		// pros::lcd::print(7, "Sonar: %f", sonar.get());
 
 		pros::delay(20);
 	}
@@ -162,6 +163,12 @@ void initialize() {
 	pros::Task IMUTask(IMUWrapperUpdate); // Continous IMU readings use "wrappedIMU"
 	pros::Task displayTask(displayTaskFnc);
 
+	// deploy.set_value(true);
+	// pros::delay(3000);
+	// deploy.set_value(false);
+	// pros::ADIDigitalOut intakeR ('A');
+	// pros::ADIDigitalOut intakeL ('B');
+	// pros::ADIDigitalOut deploy ('C');
 }
 
 /**
@@ -203,6 +210,14 @@ void autonomous() {
 	pros::delay(3000);
 	controller.clear();
 
+	deploy.set_value(true);
+	intakeL.set_value(true); //Open
+	intakeR.set_value(true);
+
+	Intake.moveVoltage(-127*100); //Out to deploy
+
+	pros::delay(500);
+
 	Singleton *s = s->getInstance();
 	shared_ptr<OdomChassisController> chassis = s->getChassis();
 	shared_ptr<OdomChassisController> chassisRev = s->getChassisRev();
@@ -211,9 +226,9 @@ void autonomous() {
 	std::shared_ptr<AsyncMotionProfileController> profileController =
 	AsyncMotionProfileControllerBuilder()
 		.withLimits({
-			2.0, // Maximum linear velocity of the Chassis in m/s
-			1.3, // Maximum linear acceleration of the Chassis in m/s/s
-			4.0 // Maximum linear jerk of the Chassis in m/s/s/s
+			1.8, // Maximum linear velocity of the Chassis in m/s
+			1.1, // Maximum linear acceleration of the Chassis in m/s/s
+			3.0 // Maximum linear jerk of the Chassis in m/s/s/s
 		})
 		.withOutput(chassis)
 		.buildMotionProfileController();
@@ -221,9 +236,9 @@ void autonomous() {
 	std::shared_ptr<AsyncMotionProfileController> revProfileController =
 	AsyncMotionProfileControllerBuilder()
 		.withLimits({
-			2.0, // Maximum linear velocity of the Chassis in m/s
-			1.3, // Maximum linear acceleration of the Chassis in m/s/s
-			4.0 // Maximum linear jerk of the Chassis in m/s/s/s
+			1.8, // Maximum linear velocity of the Chassis in m/s
+			1.1, // Maximum linear acceleration of the Chassis in m/s/s
+			3.0 // Maximum linear jerk of the Chassis in m/s/s/s
 		})
 		.withOutput(chassisRev)
 		.buildMotionProfileController();
@@ -241,181 +256,62 @@ void autonomous() {
 		startingOffsetDeg = -57;
 
 
-		//Start here!;
+		// Start here!;
 		profileController->generatePath(
-    {{0_ft, 0_ft, 0_deg}, {30.5_in, 0_ft, 0_deg}}, "FirstStraight");
+    {{0_ft, 0_ft, 0_deg}, {21.5_in, 0_ft, 0_deg}}, "FirstStraight");
 		profileController->setTarget("FirstStraight");
 		profileController->waitUntilSettled();
 
-		revProfileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {8_in, 0_ft, 0_deg}}, "REVToGoal1");
-		revProfileController->setTarget("REVToGoal1");
-		revProfileController->waitUntilSettled();
+		Intake.moveVoltage(127*100); //in
 
 		pidTurnToAngle(-135);
 
+		chassis->getModel()->left(0);
+		chassis->getModel()->right(0);
+
 		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {9_in, 0_ft, 0_deg}}, "TowardsGoal1");
+		{{0_ft, 0_ft, 0_deg}, {17.5_in, 0_ft, 0_deg}}, "TowardsGoal1");
 		profileController->setTarget("TowardsGoal1");
 		profileController->waitUntilSettled();
 
-		pros::delay(1000); //Score Goal 1
+		pros::delay(100);
+
+		intakeL.set_value(false);
+		intakeR.set_value(false);
+
+		Intake.moveVoltage(127*100);
+		Conveyor.moveVoltage(127*100);
+		Indexer.moveVoltage(-127*100);
+
+		pros::delay(1000);
+
+		Indexer.moveVoltage(127*100);
+
+		pros::delay(500);
+
+		// Intake.moveVoltage(0*100);
+		Conveyor.moveVoltage(0*100);
+		Indexer.moveVoltage(0*100);
+
 
 		revProfileController->generatePath(
 		{{0_ft, 0_ft, 0_deg}, {9_in, 0_ft, 0_deg}}, "REVToGoal1");
 		revProfileController->setTarget("REVToGoal1");
 		revProfileController->waitUntilSettled();
 
-		pidTurnToAngle(69+(360*-1));
+		Intake.moveVoltage(0*100);
+
+		pidTurnToAngle(0);
+
+		chassis->getModel()->left(0);
+		chassis->getModel()->right(0);
 
 		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {31_in, 0_ft, 0_deg}}, "LongShotToBall");
-		profileController->setTarget("LongShotToBall");
+		{{0_ft, 0_ft, 0_deg}, {17.5_in, 0_ft, 0_deg}}, "TowardsGoal1");
+		profileController->setTarget("TowardsGoal1");
 		profileController->waitUntilSettled();
 
-		pidTurnToAngle(186+(360*-1));
-
-		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {15_in, 0_ft, 0_deg}}, "LongShotToBall");
-		profileController->setTarget("LongShotToBall");
-		profileController->waitUntilSettled();
-
-		int distnaceToWall = sonar.get() - 360;
-		float x = distnaceToWall / 12.0 / 100.0; //Make constant larger if crashing into goal
-		if(x < 0){
-			x = 0;
-		}
-
-		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {(QLength)x, 0_ft, 0_deg}}, "FirstStraight");
-		profileController->setTarget("FirstStraight");
-		profileController->waitUntilSettled();
-
-		pros::delay(1000); //Score Goal 2
-
-		revProfileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {4_in, 0_ft, 0_deg}}, "REVToGoal1");
-		revProfileController->setTarget("REVToGoal1");
-		revProfileController->waitUntilSettled();
-
-		pidTurnToAngle(88+(360*-1));
-
-		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {18_in, 0_ft, 0_deg}}, "LongShotToBall");
-		profileController->setTarget("LongShotToBall");
-		profileController->waitUntilSettled();
-
-		pidTurnToAngle(82+(360*-1));
-
-		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {15_in, 0_ft, 0_deg}}, "LongShotToBall");
-		profileController->setTarget("LongShotToBall");
-		profileController->waitUntilSettled();
-
-		revProfileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {8_in, 0_ft, 0_deg}}, "REVToGoal1");
-		revProfileController->setTarget("REVToGoal1");
-		revProfileController->waitUntilSettled();
-
-		pidTurnToAngle(138+(360*-1));
-
-		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {15_in, 0_ft, 0_deg}}, "LongShotToBall");
-		profileController->setTarget("LongShotToBall");
-		profileController->waitUntilSettled();
-
-		pros::delay(1000); //Score Goal 3
-
-		revProfileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {4_in, 0_ft, 0_deg}}, "REVToGoal1");
-		revProfileController->setTarget("REVToGoal1");
-		revProfileController->waitUntilSettled();
-
-		pidTurnToAngle(-19+(360*-1));
-
-		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {39_in, 0_ft, 0_deg}}, "LongShotToBall");
-		profileController->setTarget("LongShotToBall");
-		profileController->waitUntilSettled();
-
-		pidTurnToAngle(94+(360*-1));
-
-		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {14_in, 0_ft, 0_deg}}, "LongShotToBall");
-		profileController->setTarget("LongShotToBall");
-		profileController->waitUntilSettled();
-
-		distnaceToWall = sonar.get() - 360;
-		x = distnaceToWall / 12.0 / 100.0; //Make constant larger if crashing into goal
-		if(x < 0){
-			x = 0;
-		}
-
-		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {(QLength)x, 0_ft, 0_deg}}, "FirstStraight");
-		profileController->setTarget("FirstStraight");
-		profileController->waitUntilSettled();
-
-		pros::delay(1000); //Score Goal 4
-
-		revProfileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {4_in, 0_ft, 0_deg}}, "REVToGoal1");
-		revProfileController->setTarget("REVToGoal1");
-		revProfileController->waitUntilSettled();
-
-		pidTurnToAngle(-10+(360*-1));
-
-		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {25_in, 0_ft, 0_deg}}, "LongShotToBall");
-		profileController->setTarget("LongShotToBall");
-		profileController->waitUntilSettled();
-
-		pidTurnToAngle(105+(360*-1));
-
-		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {13_in, 0_ft, 0_deg}}, "LongShotToBall");
-		profileController->setTarget("LongShotToBall");
-		profileController->waitUntilSettled();
-
-		revProfileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {8_in, 0_ft, 0_deg}}, "REVToGoal1");
-		revProfileController->setTarget("REVToGoal1");
-		revProfileController->waitUntilSettled();
-
-		pidTurnToAngle(44+(360*-1));
-
-		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {14_in, 0_ft, 0_deg}}, "LongShotToBall");
-		profileController->setTarget("LongShotToBall");
-		profileController->waitUntilSettled();
-
-		pros::delay(1000); //Score Goal 5
-
-		revProfileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {4_in, 0_ft, 0_deg}}, "REVToGoal1");
-		revProfileController->setTarget("REVToGoal1");
-		revProfileController->waitUntilSettled();
-
-		pidTurnToAngle(-105+(360*-1));
-
-		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {30_in, 0_ft, 0_deg}}, "LongShotToBall");
-		profileController->setTarget("LongShotToBall");
-		profileController->waitUntilSettled();
-
-		pidTurnToAngle(0+(360*-1));
-
-		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {20_in, 0_ft, 0_deg}}, "LongShotToBall");
-		profileController->setTarget("LongShotToBall");
-		profileController->waitUntilSettled();
-
-		pros::delay(1000);
-
-		revProfileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {4_in, 0_ft, 0_deg}}, "REVToGoal1");
-		revProfileController->setTarget("REVToGoal1");
-		revProfileController->waitUntilSettled();
+		pros::delay(30000); //Score Goal 1
 
 }
 
@@ -438,12 +334,19 @@ void opcontrol() {
 		controller.clear();
 		ControllerButton XButton(ControllerDigital::X);
 		ControllerButton AButton(ControllerDigital::A);
+		ControllerButton YButton(ControllerDigital::Y);
 		ControllerButton BButton(ControllerDigital::B);
-		ControllerButton CalButton(ControllerDigital::up);
+
 		ControllerButton L1Button(ControllerDigital::L1);
 		ControllerButton L2Button(ControllerDigital::L2);
 		ControllerButton R1Button(ControllerDigital::R1);
 		ControllerButton R2Button(ControllerDigital::R2);
+
+		ControllerButton UButton(ControllerDigital::up);
+		ControllerButton LButton(ControllerDigital::left);
+		ControllerButton RButton(ControllerDigital::right);
+		ControllerButton DButton(ControllerDigital::down);
+
 		Singleton *s = s->getInstance();
 		shared_ptr<OdomChassisController> chassis = s->getChassis();
 
@@ -460,62 +363,31 @@ void opcontrol() {
 
 
 		while (true) {
-		// Arcade drive with the left stick
-		chassis->getModel()->arcade(controller.getAnalog(ControllerAnalog::leftY),
-															controller.getAnalog(ControllerAnalog::rightX));
+			// Arcade drive with the left stick
+			chassis->getModel()->arcade(controller.getAnalog(ControllerAnalog::rightY),
+																controller.getAnalog(ControllerAnalog::rightX));
+			//
+			if (L1Button.isPressed()){
+				// Intake.moveVoltage(127*100);
+				// Conveyor.moveVoltage(127*100);
+				// Indexer.moveVoltage(-40*100);
+				deploy.set_value(true);
+				intakeR.set_value(true);
+				intakeL.set_value(true);
+			}else{
+				// Intake.moveVoltage(0);
+				// Conveyor.moveVoltage(0);
+				// Indexer.moveVoltage(0);
+				deploy.set_value(false);
+				intakeR.set_value(false);
+				intakeL.set_value(false);
+			}
 
-		if (L1Button.isPressed()){
-			Intake.moveVoltage(127*100);
-			Conveyor.moveVoltage(127*100);
-			Indexer.moveVoltage(-40*100);
-		}
+			if(AButton.isPressed()){
+				numberOfLoops = 0;
+				autonomous();
+			}
 
-		else if (L2Button.isPressed()){
-			Intake.moveVoltage(-127*100);
-			Conveyor.moveVoltage(-127*100);
-			Indexer.moveVoltage(-127*100);
-		}
-
-		else if (R1Button.isPressed()){
-			Conveyor.moveVoltage(127*100);
-			Indexer.moveVoltage(127*100);
-			Intake.moveVoltage(0);
-		}
-		else{
-			Intake.moveVoltage(0);
-			Conveyor.moveVoltage(0);
-			Indexer.moveVoltage(0);
-		}
-		// Run the test autonomous routine if we press the button
-		if (XButton.changedToPressed()) {
-				// Drive the robot in a square pattern using closed-loop control
-				// chassis->turnAngle(90_deg);   // Turn in place 90 degrees
-				// chassis->getModel()->resetSensors();
-				// auto imuZ = IMU(19, IMUAxes::z);
-
-		}
-
-		if (CalButton.changedToPressed()) {
-			imuZ.calibrate();
-			controller.clear();
-			controller.setText(1, 0, "The IMU Calibrates...");
-			pros::delay(3000);
-			controller.clear();
-		}
-		if (AButton.changedToPressed()) {
-					// chassis->moveDistance(24_in); // Drive forward 12 inches
-					// // profileController->setTarget("A");
-					// // profileController->waitUntilSettled();
-					// // turnProfileController->setTarget("B");
-					// // turnProfileController->waitUntilSettled();
-					pidTurnToAngle(80);
-		}
-
-		if (BButton.changedToPressed()) {
-			numberOfLoops = 0;
-			autonomous();
-		}
-
-		pros::delay(20);
+			pros::delay(20);
 	}
 }

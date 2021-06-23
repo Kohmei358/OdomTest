@@ -22,11 +22,11 @@ class Singleton {
              {0.000, 0.000, 0.000}
              // {0.000135, 0.000, 0.0000}  // angle controller gains (helps drive straight)
          )
-         .withSensors(
-             ADIEncoder{'C', 'D', false}, // left encoder in ADI ports A & B
-             ADIEncoder{'E', 'F', true},  // right encoder in ADI ports C & D (reversed)
-             ADIEncoder{'A', 'B', false}  // middle encoder in ADI ports E & F
-         )
+         // .withSensors(
+         //     ADIEncoder{'C', 'D', false}, // left encoder in ADI ports A & B
+         //     ADIEncoder{'E', 'F', true},  // right encoder in ADI ports C & D (reversed)
+         //     ADIEncoder{'A', 'B', false}  // middle encoder in ADI ports E & F
+         // )
          // green gearset, tracking wheel diameter (3.24 in), track (7.32 in), and TPR (256(PPR)*4)
          // 4.5 inch middle encoder distance, and 2.75 inch middle wheel diameter
          // 4.3
@@ -44,11 +44,11 @@ class Singleton {
                {0.000, 0.000, 0.000}
                // {0.000135, 0.000, 0.0000}  // angle controller gains (helps drive straight)
            )
-           .withSensors(
-               ADIEncoder{'C', 'D', false}, // left encoder in ADI ports A & B
-               ADIEncoder{'E', 'F', true},  // right encoder in ADI ports C & D (reversed)
-               ADIEncoder{'A', 'B', false}  // middle encoder in ADI ports E & F
-           )
+           // .withSensors(
+           //     ADIEncoder{'C', 'D', false}, // left encoder in ADI ports A & B
+           //     ADIEncoder{'E', 'F', true},  // right encoder in ADI ports C & D (reversed)
+           //     ADIEncoder{'A', 'B', false}  // middle encoder in ADI ports E & F
+           // )
            // green gearset, tracking wheel diameter (3.24 in), track (7.32 in), and TPR (256(PPR)*4)
            // 4.5 inch middle encoder distance, and 2.75 inch middle wheel diameter
            // 4.3
