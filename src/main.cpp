@@ -267,23 +267,34 @@ void autonomous() {
 		profileController->setTarget("FirstStraight");
 		profileController->waitUntilSettled();
 
+		Conveyor.moveVoltage(0);
+		Indexer.moveVoltage(0);
+
 		intakeL.set_value(false);
 		intakeR.set_value(false); //Close
 
 		pros::delay(1000);
 
 		revProfileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {19_in, 0_ft, 0_deg}}, "REVToGoal1");
+		{{0_ft, 0_ft, 0_deg}, {10_in, 0_ft, 0_deg}}, "REVToGoal1");
 		revProfileController->setTarget("REVToGoal1");
 		revProfileController->waitUntilSettled();
 
-		pidTurnToAngle(-135);
+		pidTurnToAngle(45);
 
 		chassis->getModel()->left(0);
 		chassis->getModel()->right(0);
 
 		profileController->generatePath( //Goal 1
-		{{0_ft, 0_ft, 0_deg}, {17.5_in, 0_ft, 0_deg}}, "TowardsGoal1");
+		{{0_ft, 0_ft, 0_deg}, {10.5_in, 0_ft, 0_deg}}, "TowardsGoal1");
+		profileController->setTarget("TowardsGoal1");
+		profileController->waitUntilSettled();
+
+
+
+
+		profileController->generatePath( //Goal 1
+		{{0_ft, 0_ft, 0_deg}, {10.5_in, 0_ft, 0_deg}}, "TowardsGoal1");
 		profileController->setTarget("TowardsGoal1");
 		profileController->waitUntilSettled();
 
