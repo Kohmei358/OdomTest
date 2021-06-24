@@ -256,7 +256,10 @@ void autonomous() {
 		startingOffsetDeg = 0;
 
 
-		Intake.moveVoltage(127*100); //in
+		//Intake Don't shoot
+		Intake.moveVoltage(127*100);
+		Conveyor.moveVoltage(127*100);
+		Indexer.moveVoltage(-127*100);
 
 		// Start here!;
 		profileController->generatePath(
@@ -290,13 +293,14 @@ void autonomous() {
 		profileController->waitUntilSettled();
 
 		pros::delay(100);
-
-		Intake.moveVoltage(127*100);
-		Conveyor.moveVoltage(127*100);
-		Indexer.moveVoltage(-127*100);
+		//
+		// Intake.moveVoltage(127*100);
+		// Conveyor.moveVoltage(127*100);
+		// Indexer.moveVoltage(-127*100);
 
 		pros::delay(1000);
 
+		//Shoot
 		Indexer.moveVoltage(127*100);
 
 		pros::delay(500);
