@@ -253,31 +253,43 @@ void autonomous() {
 		.withOutput(chassis)
 		.buildMotionProfileController();
 
-		startingOffsetDeg = -57;
+		startingOffsetDeg = 0;
 
+
+		Intake.moveVoltage(127*100); //in
 
 		// Start here!;
 		profileController->generatePath(
-    {{0_ft, 0_ft, 0_deg}, {21.5_in, 0_ft, 0_deg}}, "FirstStraight");
+    {{0_ft, 0_ft, 0_deg}, {33.5_in, 0_ft, 0_deg}}, "FirstStraight");
 		profileController->setTarget("FirstStraight");
 		profileController->waitUntilSettled();
 
-		Intake.moveVoltage(127*100); //in
+		intakeL.set_value(false);
+		intakeR.set_value(false); //Close
+
+		pros::delay(1000);
+
+		revProfileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {19_in, 0_ft, 0_deg}}, "REVToGoal1");
+		revProfileController->setTarget("REVToGoal1");
+		revProfileController->waitUntilSettled();
 
 		pidTurnToAngle(-135);
 
 		chassis->getModel()->left(0);
 		chassis->getModel()->right(0);
 
-		profileController->generatePath(
+		profileController->generatePath( //Goal 1
 		{{0_ft, 0_ft, 0_deg}, {17.5_in, 0_ft, 0_deg}}, "TowardsGoal1");
 		profileController->setTarget("TowardsGoal1");
 		profileController->waitUntilSettled();
 
-		pros::delay(100);
+		profileController->generatePath( //Goal 1
+		{{0_ft, 0_ft, 0_deg}, {4.5_in, 0_ft, 0_deg}}, "TowardsGoal1");
+		profileController->setTarget("TowardsGoal1");
+		profileController->waitUntilSettled();
 
-		intakeL.set_value(false);
-		intakeR.set_value(false);
+		pros::delay(100);
 
 		Intake.moveVoltage(127*100);
 		Conveyor.moveVoltage(127*100);
