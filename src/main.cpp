@@ -329,7 +329,7 @@ void autonomous() {
  * task, not resume it from where it left off.
  */
 void opcontrol() {
-
+		bool deployed = false;
 		Controller controller;
 		controller.clear();
 		ControllerButton XButton(ControllerDigital::X);
@@ -366,21 +366,42 @@ void opcontrol() {
 			// Arcade drive with the left stick
 			chassis->getModel()->arcade(controller.getAnalog(ControllerAnalog::rightY),
 																controller.getAnalog(ControllerAnalog::rightX));
-			//
-			if (L1Button.isPressed()){
-				// Intake.moveVoltage(127*100);
-				// Conveyor.moveVoltage(127*100);
-				// Indexer.moveVoltage(-40*100);
-				deploy.set_value(true);
+
+
+			int intakePower = 0;
+			int conveyorPower = 0;
+			int indexerPower = 0;
+
+			if (L1Button.isPressed()) {
+				intakePower+=127;
+				conveyorPower+=127;
+				indexerPower = -40;
+			}
+			else if (L2Button.isPressed()) {
+				intakePower-=127;
+				conveyorPower-=127;
+				indexerPower-=127;
+			}
+
+			if (R1Button.isPressed()) {
+				indexerPower = 127;
+				conveyorPower = 127;
+			}
+
+			if (R2Button.isPressed()){
 				intakeR.set_value(true);
 				intakeL.set_value(true);
 			}else{
-				// Intake.moveVoltage(0);
-				// Conveyor.moveVoltage(0);
-				// Indexer.moveVoltage(0);
-				deploy.set_value(false);
 				intakeR.set_value(false);
 				intakeL.set_value(false);
+			}
+			Intake.moveVoltage(intakePower*100);
+			Conveyor.moveVoltage(conveyorPower*100);
+			Indexer.moveVoltage(indexerPower*100);
+
+			if (XButton.changedToPressed()) {
+				deployed = !deployed;
+				deploy.set_value(deployed);
 			}
 
 			if(AButton.isPressed()){
