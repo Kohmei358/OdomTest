@@ -47,7 +47,7 @@ void pidTurnToAngle(float targetDegree){
 	lastError = 0;
 	sumError = 0;
 	SettledUtil settledUtil( //5 deg, 5 deg /sec, hold for 250ms
-	std::make_unique<Timer>(), 5, 5, 50_ms);
+	std::make_unique<Timer>(), 2, 2, 150_ms);
 
 	while(!settledUtil.isSettled(error)){
 		unsigned long now = pros::millis();
@@ -267,22 +267,29 @@ void autonomous() {
 		profileController->setTarget("FirstStraight");
 		profileController->waitUntilSettled();
 
+
+		pros::delay(100);
+
+		Intake.moveVoltage(127*100);
+		Conveyor.moveVoltage(0*100);
+		Indexer.moveVoltage(0*100);
+
 		intakeL.set_value(false);
 		intakeR.set_value(false); //Close
 
 		pros::delay(100);
 
 		revProfileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {9_in, 0_ft, 0_deg}}, "REVToGoal1");
+		{{0_ft, 0_ft, 0_deg}, {3.5_in, 0_ft, 0_deg}}, "REVToGoal1");
 		revProfileController->setTarget("REVToGoal1");
 		revProfileController->waitUntilSettled();
 
-		pidTurnToAngle(70);
+		pidTurnToAngle(80);
 
 		chassis->getModel()->left(0);
 		chassis->getModel()->right(0);
 
-		intakeL.set_value(true);
+		intakeL.set_value(true); //Open Intake
 
 		//Intake only
 		Intake.moveVoltage(127*100);
@@ -290,57 +297,108 @@ void autonomous() {
 		Indexer.moveVoltage(0);
 
 		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {17.5_in, 0_ft, 0_deg}}, "TowardsGoal1");
+		{{0_ft, 0_ft, 0_deg}, {16_in, 0_ft, 0_deg}}, "TowardsGoal1");
 		profileController->setTarget("TowardsGoal1");
 		profileController->waitUntilSettled();
-
-		intakeL.set_value(false);
-
-		profileController->generatePath( //Goal 1
-		{{0_ft, 0_ft, 0_deg}, {4.5_in, 0_ft, 0_deg}}, "TowardsGoal1");
-		profileController->setTarget("TowardsGoal1");
-		profileController->waitUntilSettled();
-
-		// Try to shoot one only
-		Intake.moveVoltage(0);
-		Conveyor.moveVoltage(0);
-		Indexer.moveVoltage(127*100);
-
-
-		pros::delay(100);
 
 		Intake.moveVoltage(0);
 		Conveyor.moveVoltage(0);
 		Indexer.moveVoltage(0);
 
-		pros::delay(1000);
-
-		//Shoot
-		Indexer.moveVoltage(127*100);
-
-		pros::delay(500);
-
-		// Intake.moveVoltage(0*100);
-		Conveyor.moveVoltage(0*100);
-		Indexer.moveVoltage(0*100);
-
-
-		revProfileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {9_in, 0_ft, 0_deg}}, "REVToGoal1");
+		revProfileController->generatePath( //Back out of Goal 2
+		{{0_ft, 0_ft, 0_deg}, {10_in, 0_ft, 0_deg}}, "REVToGoal1");
 		revProfileController->setTarget("REVToGoal1");
 		revProfileController->waitUntilSettled();
 
-		Intake.moveVoltage(0*100);
+		intakeL.set_value(false); //Close Left Intake
 
-		pidTurnToAngle(0);
+		// pros::delay(1000);  //At middle goal
+
+		Intake.moveVoltage(127*100); //IN
+		Conveyor.moveVoltage(0);
+		Indexer.moveVoltage(0);
+
+		pidTurnToAngle(-145+360);
 
 		chassis->getModel()->left(0);
 		chassis->getModel()->right(0);
 
 		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {17.5_in, 0_ft, 0_deg}}, "TowardsGoal1");
+		{{0_ft, 0_ft, 0_deg}, {35.5_in, 0_ft, 0_deg}}, "TowardsGoal1");
 		profileController->setTarget("TowardsGoal1");
 		profileController->waitUntilSettled();
+
+		profileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {3.3_in, 0_ft, 0_deg}}, "TowardsGoal1");
+		profileController->setTarget("TowardsGoal1");
+		profileController->waitUntilSettled();
+
+
+		Intake.moveVoltage(127*100); //In
+		Conveyor.moveVoltage(127*100); //Up
+		Indexer.moveVoltage(127*100); //Shoot
+
+		pros::delay(860); //Score 3 balls
+
+		Intake.moveVoltage(0*100); //In
+		Conveyor.moveVoltage(127*100); //Up
+		Indexer.moveVoltage(127*100); //Shoot
+
+		pros::delay(460); //Score 3 balls
+
+		intakeL.set_value(true);
+		intakeR.set_value(true); //Open
+
+		Indexer.moveVoltage(-127*100); //Don't shoot
+		Intake.moveVoltage(0); //In
+		Conveyor.moveVoltage(0); //Up
+
+		revProfileController->generatePath( //Back out of Goal 2
+		{{0_ft, 0_ft, 0_deg}, {18_in, 0_ft, 0_deg}}, "REVToGoal1");
+		revProfileController->setTarget("REVToGoal1");
+		revProfileController->waitUntilSettled();
+
+		Indexer.moveVoltage(-127*100); //Don't shoot
+		Intake.moveVoltage(0); //In
+		Conveyor.moveVoltage(0); //Up
+
+		pidTurnToAngle(-37+360);
+
+		chassis->getModel()->left(0);
+		chassis->getModel()->right(0);
+
+		Indexer.moveVoltage(0); //Don't shoot
+		Intake.moveVoltage(0); //In
+		Conveyor.moveVoltage(0); //Up
+
+		profileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {23.5_in, 0_ft, 0_deg}}, "TowardsGoal1");
+		profileController->setTarget("TowardsGoal1");
+		profileController->waitUntilSettled();
+
+		profileController->generatePath(
+		{{0_ft, 0_ft, 0_deg}, {3.5_in, 0_ft, 0_deg}}, "TowardsGoal1");
+		profileController->setTarget("TowardsGoal1");
+		profileController->waitUntilSettled();
+		// intakeL.set_value(false);
+		// intakeR.set_value(false); //Open
+
+		// Intake.moveVoltage(127*100); //In
+		// Conveyor.moveVoltage(127*100); //Up
+		// Indexer.moveVoltage(0*100); //Shoot
+		//
+		// pros::delay(350); //Intake
+		//
+		// Intake.moveVoltage(0*100); //In
+		// Conveyor.moveVoltage(127*100); //Up
+		// Indexer.moveVoltage(127*100); //Shoot
+		//
+		// pros::delay(350); //Score 1
+
+		// intakeL.set_value(true);
+		// intakeR.set_value(true); //Open
+
+		intakeR.set_value(false); //Close Left Intake
 
 		pros::delay(30000); //Score Goal 1
 
@@ -435,9 +493,24 @@ void opcontrol() {
 				deploy.set_value(deployed);
 			}
 
+			if (BButton.changedToPressed()) {
+				pidTurnToAngle(0);
+			}
+
 			if(AButton.isPressed()){
 				numberOfLoops = 0;
 				autonomous();
+			}
+
+			if(XButton.isPressed() && UButton.isPressed()){
+				while(true){
+					intakeR.set_value(true);
+					intakeL.set_value(false);
+					pros::delay(300);
+					intakeL.set_value(true);
+					intakeR.set_value(false);
+					pros::delay(300);
+				}
 			}
 
 			pros::delay(20);
