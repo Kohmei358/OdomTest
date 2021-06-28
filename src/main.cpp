@@ -318,7 +318,7 @@ void autonomous() {
 		Conveyor.moveVoltage(0);
 		Indexer.moveVoltage(0);
 
-		pidTurnToAngle(-145+360);
+		pidTurnToAngle(-148+360);
 
 		chassis->getModel()->left(0);
 		chassis->getModel()->right(0);
@@ -338,7 +338,7 @@ void autonomous() {
 		Conveyor.moveVoltage(127*100); //Up
 		Indexer.moveVoltage(127*100); //Shoot
 
-		pros::delay(860); //Score 3 balls
+		pros::delay(1160); //Score 3 balls
 
 		Intake.moveVoltage(0*100); //In
 		Conveyor.moveVoltage(127*100); //Up
@@ -362,7 +362,7 @@ void autonomous() {
 		Intake.moveVoltage(0); //In
 		Conveyor.moveVoltage(0); //Up
 
-		pidTurnToAngle(-37+360);
+		pidTurnToAngle(-49+360);
 
 		chassis->getModel()->left(0);
 		chassis->getModel()->right(0);
@@ -377,7 +377,7 @@ void autonomous() {
 		profileController->waitUntilSettled();
 
 		profileController->generatePath(
-		{{0_ft, 0_ft, 0_deg}, {3.5_in, 0_ft, 0_deg}}, "TowardsGoal1");
+		{{0_ft, 0_ft, 0_deg}, {7.5_in, 0_ft, 0_deg}}, "TowardsGoal1");
 		profileController->setTarget("TowardsGoal1");
 		profileController->waitUntilSettled();
 		// intakeL.set_value(false);
